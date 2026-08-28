@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <title>Spotify Playlist Generator</title>
+</head>
+<body>
+
+<h2>Spotify Playlist Generator</h2>
+
+<textarea id="artists" rows="10" cols="40">
+Turnstile
+Big Thief
+Alex G
+Deafheaven
+</textarea>
+
+<br><br>
+
+<button onclick="createPlaylist()">Maak Playlist</button>
+
+<script>
+
+const clientId = 'c17f3f874de044bcb883a69b5341d133';
+const accessToken = 'HIER_KOMT_EEN_GELDIGE_ACCESS_TOKEN';
+
+async function getTopTrack(artistName) {
+
+    const searchResponse = await fetch(
+        `https://api.spotify.com/v1/search?q=${encodeURIComponent(artistName)}&type=artist&limit=1`,
+        {
+            headers: {
+                Authorization: `Bearer ${accessToken}`
+            }
+        }
+    );
+
+    const searchData = await searchResponse.json();
+
+    if (!searchData.artists.items.length) return null;
+
+    const artistId = searchData.artists.items[0].id;
+
+    const tracksResponse = await fetch(
+        `https://api.spotify.com/v1/artists/${artistId}/top-tracks?market=BE`,
+        {
+            headers: {
+                Authorization: `Bearer ${accessToken}`
+            }
+        }
+    );
+
+    const trackData = await tracksResponse.json();
+
+    return trackData.tracks[0]?.uri;
+}
+
+async function createPlaylist() {
+
+    const artistNames = document
+        .getElementById('artists')
+        .value
+        .split('\n')
+        .map(x => x.trim())
+        .filter(x => x);
+
+    let trackUris = [];
+
+    for (const artist of artistNames) {
+
+        const track = await getTopTrack(artist);
+
+        if (track) {
+            trackUris.push(track);
+            console.log("Toegevoegd:", artist);
+        }
+    }
+
+    console.log(trackUris);
+
+    alert(
+        `${trackUris.length} tracks gevonden.\n\n` +
+        `Volgende stap: playlist aanmaken via Spotify API.`
+    );
+}
+
+</script>
+
+</body>
+</html>
