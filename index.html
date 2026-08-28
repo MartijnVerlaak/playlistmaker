@@ -1,231 +1,57 @@
 <!doctype html>
 <html lang="nl">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Spotify Top Track Playlistmaker</title>
-  <style>
-    :root { color-scheme: dark; --green:#1ed760; --bg:#0b0d0c; --panel:#151816; --muted:#aab2ac; --line:#2a302c; --danger:#ff7272; }
-    * { box-sizing:border-box; }
-    body { margin:0; font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif; background:var(--bg); color:#fff; }
-    main { width:min(920px,calc(100% - 32px)); margin:40px auto; }
-    h1 { font-size:clamp(2rem,5vw,3.5rem); line-height:1.05; margin:0 0 12px; }
-    h2 { margin-top:0; }
-    .lead,.muted { color:var(--muted); }
-    .card { background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:22px; margin:18px 0; }
-    label { display:block; font-weight:700; margin:14px 0 7px; }
-    input,textarea { width:100%; border:1px solid #3b433e; background:#0f1210; color:#fff; border-radius:10px; padding:12px; font:inherit; }
-    textarea { min-height:260px; resize:vertical; }
-    .row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-    .check { display:flex; gap:9px; align-items:center; font-weight:500; }
-    .check input { width:auto; }
-    button { border:0; border-radius:999px; padding:12px 20px; font-weight:800; cursor:pointer; background:var(--green); color:#07150c; margin:8px 8px 0 0; }
-    button.secondary { background:#fff; color:#111; }
-    button.ghost { background:#2a302c; color:#fff; }
-    button:disabled { opacity:.5; cursor:not-allowed; }
-    progress { width:100%; height:16px; accent-color:var(--green); }
-    .status { white-space:pre-wrap; margin:12px 0; }
-    .error { color:var(--danger); }
-    .ok { color:var(--green); }
-    table { width:100%; border-collapse:collapse; font-size:.92rem; }
-    th,td { border-bottom:1px solid var(--line); text-align:left; padding:9px 6px; vertical-align:top; }
-    a { color:var(--green); }
-    code { background:#252a27; padding:2px 5px; border-radius:5px; }
-    @media(max-width:650px){ .row{grid-template-columns:1fr} table{display:block;overflow:auto} }
-  </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spotify Playlist Maker</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<main>
-  <h1>Spotify Top Track Playlistmaker</h1>
-  <p class="lead">Plak één artiest per regel. De app zoekt per artiest een populaire track en maakt de playlist rechtstreeks in jouw Spotify-account.</p>
+<main class="container">
+  <header>
+    <p class="eyebrow">Spotify Playlist Maker</p>
+    <h1>Maak een playlist per artiest</h1>
+    <p>Plak artiesten, kies hoeveel populaire tracks je per artiest wilt en maak de playlist in je eigen account.</p>
+  </header>
 
   <section class="card">
-    <h2>1. Spotify koppelen</h2>
-    <label for="clientId">Spotify Client ID</label>
-    <input id="clientId" value="c17f3f874de044bcb883a69b5341d133" autocomplete="off" />
-    <p class="muted">Redirect URI voor je Spotify Developer Dashboard: <code id="redirectView"></code></p>
-    <button id="loginBtn">Login met Spotify</button>
-    <button id="logoutBtn" class="ghost" hidden>Uitloggen</button>
-    <div id="account" class="status muted">Niet verbonden.</div>
+    <h2>1. Spotify verbinden</h2>
+    <div class="buttons">
+      <button id="loginButton" class="primary">Inloggen met Spotify</button>
+      <button id="logoutButton" class="secondary hidden">Uitloggen</button>
+    </div>
+    <p id="accountStatus" class="muted">Niet ingelogd</p>
+    <p class="hint">Zet deze Redirect URI exact in je Spotify Developer Dashboard:</p>
+    <code id="redirectUri"></code>
   </section>
 
   <section class="card">
     <h2>2. Playlist instellen</h2>
-    <div class="row">
-      <div>
-        <label for="playlistName">Naam</label>
-        <input id="playlistName" value="Top tracks uit artiestenlijst" />
-      </div>
-      <div>
-        <label for="delay">Pauze per artiest</label>
-        <input id="delay" type="number" min="750" step="250" value="1250" />
-      </div>
-    </div>
-    <label class="check"><input id="publicPlaylist" type="checkbox" /> Openbare playlist</label>
+    <label for="playlistName">Naam playlist</label>
+    <input id="playlistName" type="text" value="Toptracks van mijn artiesten" maxlength="100">
+
+    <label for="topCount">Aantal tracks per artiest</label>
+    <input id="topCount" type="number" value="3" min="1" max="10" step="1">
+    <p class="hint">Minimum 1, maximum 10 per artiest.</p>
+
     <label for="artists">Artiesten, één per regel</label>
-    <textarea id="artists" placeholder="Mogwai&#10;Sigur Rós&#10;Godspeed You! Black Emperor"></textarea>
-    <button id="makeBtn" disabled>Maak playlist</button>
-    <button id="stopBtn" class="secondary" hidden>Stop</button>
+    <textarea id="artists" rows="12" placeholder="Big Thief&#10;Turnstile&#10;Alex G"></textarea>
+
+    <div class="options">
+      <label class="check"><input id="isPublic" type="checkbox"> Publieke playlist</label>
+      <label class="check"><input id="avoidDuplicates" type="checkbox" checked> Dubbele tracks overslaan</label>
+    </div>
+
+    <button id="createButton" class="primary" disabled>Playlist maken</button>
   </section>
 
   <section class="card">
-    <h2>Voortgang</h2>
-    <progress id="progress" value="0" max="1"></progress>
-    <div id="status" class="status muted">Klaar om te starten.</div>
-    <div id="playlistLink"></div>
-  </section>
-
-  <section class="card">
-    <h2>Resultaten</h2>
-    <table>
-      <thead><tr><th>Invoer</th><th>Gevonden artiest</th><th>Track</th><th>Status</th></tr></thead>
-      <tbody id="results"></tbody>
-    </table>
+    <div class="result-title"><h2>3. Resultaat</h2><span id="progress"></span></div>
+    <p id="message" aria-live="polite"></p>
+    <div id="results"></div>
+    <a id="playlistLink" class="primary button-link hidden" target="_blank" rel="noopener">Open playlist in Spotify</a>
   </section>
 </main>
-<script>
-const CLIENT_ID_DEFAULT = 'c17f3f874de044bcb883a69b5341d133';
-const API = 'https://api.spotify.com/v1';
-const AUTH = 'https://accounts.spotify.com/authorize';
-const SCOPES = 'playlist-modify-private playlist-modify-public';
-const $ = (id) => document.getElementById(id);
-let stopRequested = false;
-
-// De queryparameters worden bewust verwijderd uit de redirect URI.
-const redirectUri = location.origin + location.pathname;
-$('redirectView').textContent = redirectUri;
-$('clientId').value = localStorage.getItem('spotify_client_id') || CLIENT_ID_DEFAULT;
-$('artists').value = localStorage.getItem('spotify_artists') || '';
-$('playlistName').value = localStorage.getItem('spotify_playlist_name') || 'Top tracks uit artiestenlijst';
-
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-const normalize = (s='') => s.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
-const base64url = (bytes) => btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
-function randomString(length=64){ const bytes=crypto.getRandomValues(new Uint8Array(length)); return Array.from(bytes,b=>('0'+b.toString(16)).slice(-2)).join(''); }
-async function sha256(text){ return crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)); }
-function setStatus(text, kind='muted'){ $('status').className='status '+kind; $('status').textContent=text; }
-
-async function login(){
-  const clientId=$('clientId').value.trim();
-  if(!clientId){ setStatus('Vul eerst je Client ID in.','error'); return; }
-  localStorage.setItem('spotify_client_id',clientId);
-  const verifier=randomString(64);
-  const state=randomString(16);
-  sessionStorage.setItem('pkce_verifier',verifier);
-  sessionStorage.setItem('oauth_state',state);
-  const challenge=base64url(await sha256(verifier));
-  const p=new URLSearchParams({client_id:clientId,response_type:'code',redirect_uri:redirectUri,scope:SCOPES,code_challenge_method:'S256',code_challenge:challenge,state});
-  location.href=AUTH+'?'+p.toString();
-}
-
-async function handleCallback(){
-  const p=new URLSearchParams(location.search);
-  if(p.get('error')){ setStatus('Spotify-login geweigerd: '+p.get('error'),'error'); history.replaceState({},'',redirectUri); return; }
-  const code=p.get('code');
-  if(!code) return;
-  if(p.get('state')!==sessionStorage.getItem('oauth_state')){ setStatus('Ongeldige OAuth-state. Start de login opnieuw.','error'); return; }
-  const verifier=sessionStorage.getItem('pkce_verifier');
-  const body=new URLSearchParams({client_id:$('clientId').value.trim(),grant_type:'authorization_code',code,redirect_uri:redirectUri,code_verifier:verifier});
-  const r=await fetch('https://accounts.spotify.com/api/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body});
-  const data=await r.json();
-  if(!r.ok) throw new Error(data.error_description||data.error||'Token ophalen mislukt');
-  saveToken(data);
-  sessionStorage.removeItem('pkce_verifier'); sessionStorage.removeItem('oauth_state');
-  history.replaceState({},'',redirectUri);
-}
-function saveToken(data){
-  sessionStorage.setItem('access_token',data.access_token);
-  sessionStorage.setItem('expires_at',String(Date.now()+data.expires_in*1000-30000));
-  if(data.refresh_token) localStorage.setItem('refresh_token',data.refresh_token);
-}
-async function validToken(){
-  const token=sessionStorage.getItem('access_token');
-  const expires=Number(sessionStorage.getItem('expires_at')||0);
-  if(token && Date.now()<expires) return token;
-  const refresh=localStorage.getItem('refresh_token');
-  if(!refresh) throw new Error('Niet aangemeld. Klik op Login met Spotify.');
-  const body=new URLSearchParams({client_id:$('clientId').value.trim(),grant_type:'refresh_token',refresh_token:refresh});
-  const r=await fetch('https://accounts.spotify.com/api/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body});
-  const data=await r.json();
-  if(!r.ok) throw new Error(data.error_description||data.error||'Token vernieuwen mislukt');
-  saveToken(data); return data.access_token;
-}
-async function spotify(path,options={},retry=0){
-  const token=await validToken();
-  const r=await fetch(API+path,{...options,headers:{Authorization:'Bearer '+token,...(options.body?{'Content-Type':'application/json'}:{}),...(options.headers||{})}});
-  if(r.status===401 && retry<1){ sessionStorage.removeItem('access_token'); return spotify(path,options,retry+1); }
-  if(r.status===429){
-    if(retry>=10) throw new Error('Spotify blijft de requests beperken. Start later opnieuw met de niet-verwerkte artiesten.');
-    const seconds=Math.max(1,Number(r.headers.get('Retry-After')||2));
-    setStatus(`Spotify-rate-limit bereikt. Automatische nieuwe poging na ${seconds} seconde(n)…`,'muted');
-    await sleep(seconds*1000+Math.floor(Math.random()*750));
-    return spotify(path,options,retry+1);
-  }
-  const text=await r.text(); let data=null;
-  try{ data=text?JSON.parse(text):null; }catch{ data={raw:text}; }
-  if(!r.ok) throw new Error(data?.error?.message||data?.error_description||`Spotify-fout ${r.status}`);
-  return data;
-}
-async function accountState(){
-  try{
-    const me=await spotify('/me');
-    $('account').textContent='Verbonden als '+(me.display_name||me.id||'Spotify-gebruiker');
-    $('account').className='status ok'; $('loginBtn').hidden=true; $('logoutBtn').hidden=false; $('makeBtn').disabled=false;
-  }catch{ $('account').textContent='Niet verbonden.'; $('account').className='status muted'; $('loginBtn').hidden=false; $('logoutBtn').hidden=true; $('makeBtn').disabled=true; }
-}
-async function findTopTrack(input){
-  const query=encodeURIComponent(`artist:"${input}"`);
-  const data=await spotify(`/search?q=${query}&type=track&limit=10`);
-  const tracks=data?.tracks?.items||[]; if(!tracks.length) return null;
-  const wanted=normalize(input);
-  const exact=tracks.filter(t=>(t.artists||[]).some(a=>normalize(a.name)===wanted));
-  const candidates=(exact.length?exact:tracks).slice().sort((a,b)=>(b.popularity||0)-(a.popularity||0));
-  const track=candidates[0]; if(!track) return null;
-  const artist=(track.artists||[]).find(a=>normalize(a.name)===wanted)||track.artists?.[0];
-  return {input,artist:artist?.name||input,track:track.name,uri:track.uri,url:track.external_urls?.spotify,exact:exact.length>0};
-}
-function addResult(r){
-  const tr=document.createElement('tr');
-  for(const value of [r.input,r.artist||'',r.track||'',r.message||(r.exact===false?'Benaderende match':'OK')]){ const td=document.createElement('td'); td.textContent=value; tr.appendChild(td); }
-  $('results').appendChild(tr);
-}
-async function makePlaylist(){
-  const artists=$('artists').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
-  const unique=[...new Map(artists.map(a=>[normalize(a),a])).values()];
-  if(!unique.length){ setStatus('Voer minstens één artiest in.','error'); return; }
-  const name=$('playlistName').value.trim(); if(!name){ setStatus('Geef de playlist een naam.','error'); return; }
-  localStorage.setItem('spotify_artists',$('artists').value); localStorage.setItem('spotify_playlist_name',name);
-  stopRequested=false; $('stopBtn').hidden=false; $('makeBtn').disabled=true; $('results').innerHTML=''; $('playlistLink').innerHTML='';
-  $('progress').max=unique.length; $('progress').value=0;
-  const found=[]; const failed=[]; const delay=Math.max(750,Number($('delay').value)||1250);
-  try{
-    for(let i=0;i<unique.length;i++){
-      if(stopRequested) break;
-      const input=unique[i]; setStatus(`Zoeken ${i+1}/${unique.length}: ${input}`);
-      try{ const result=await findTopTrack(input); if(result){found.push(result);addResult(result);} else {const f={input,message:'Geen track gevonden'};failed.push(f);addResult(f);} }
-      catch(e){ const f={input,message:e.message}; failed.push(f);addResult(f); }
-      $('progress').value=i+1;
-      if(i<unique.length-1 && !stopRequested) await sleep(delay);
-    }
-    if(stopRequested){ setStatus(`Gestopt. ${found.length} tracks gevonden; er is geen playlist aangemaakt.`,'error'); return; }
-    if(!found.length) throw new Error('Geen tracks gevonden. Er is geen playlist aangemaakt.');
-    setStatus('Playlist aanmaken…');
-    const created=await spotify('/me/playlists',{method:'POST',body:JSON.stringify({name,public:$('publicPlaylist').checked,description:'Gemaakt met Spotify Top Track Playlistmaker.'})});
-    const uris=found.map(x=>x.uri);
-    for(let i=0;i<uris.length;i+=100){
-      setStatus(`Tracks toevoegen: ${Math.min(i+100,uris.length)}/${uris.length}`);
-      await spotify(`/playlists/${encodeURIComponent(created.id)}/items`,{method:'POST',body:JSON.stringify({uris:uris.slice(i,i+100)})});
-      if(i+100<uris.length) await sleep(1000);
-    }
-    const link=created.external_urls?.spotify;
-    setStatus(`Klaar: ${found.length} tracks toegevoegd. ${failed.length} artiest(en) zonder bruikbare track.`,'ok');
-    if(link){ const a=document.createElement('a'); a.href=link; a.target='_blank'; a.rel='noopener'; a.textContent='Open playlist in Spotify'; $('playlistLink').appendChild(a); }
-  }catch(e){ setStatus(e.message,'error'); }
-  finally{ $('stopBtn').hidden=true; $('makeBtn').disabled=false; }
-}
-function logout(){ sessionStorage.clear(); localStorage.removeItem('refresh_token'); accountState(); setStatus('Uitgelogd.'); }
-$('loginBtn').onclick=login; $('logoutBtn').onclick=logout; $('makeBtn').onclick=makePlaylist; $('stopBtn').onclick=()=>{stopRequested=true;$('stopBtn').disabled=true;};
-(async()=>{ try{await handleCallback();}catch(e){setStatus(e.message,'error');history.replaceState({},'',redirectUri);} await accountState(); })();
-</script>
+<script type="module" src="app.js"></script>
 </body>
 </html>
