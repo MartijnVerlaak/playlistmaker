@@ -1,48 +1,47 @@
-# Spotify Playlist Maker v2
+# Spotify Top Track Playlistmaker
 
-## Welke bestanden vervangen?
+Een statische GitHub Pages-app. Er is geen server, npm of Python nodig.
 
-Vervang in de hoofdmap van je GitHub-repository:
+## 1. Spotify Developer Dashboard
 
-- `index.html`
-- `app.js`
-- `style.css`
+1. Open https://developer.spotify.com/dashboard
+2. Open je app.
+3. Voeg bij **Redirect URIs** exact de URL toe die de app onder **Redirect URI** toont.
+4. Sla de wijziging op.
 
-Je mag deze `README.md` eveneens uploaden.
+Voor een repository `playlistmaker` is de GitHub Pages-URL doorgaans:
 
-## Redirect URI
+`https://JOUW-GITHUB-NAAM.github.io/playlistmaker/`
 
-Na publicatie toont de app zelf de exacte Redirect URI. Voeg die exact toe in het Spotify Developer Dashboard, inclusief de afsluitende slash.
+Let op de afsluitende `/`. De redirect URI in Spotify moet exact overeenkomen.
 
-## Werking
+## 2. Publiceren via GitHub
 
-1. Log in met Spotify via PKCE.
-2. Geef één artiest per regel op.
-3. Kies 1 tot 10 tracks per artiest.
-4. De app zoekt eerst de artiest via `resolveArtist()`.
-5. De app zoekt daarna tracks van die artiest via `topTracks()`.
-6. Tracks worden gerangschikt op de door Spotify teruggegeven `popularity`-waarde.
-7. De playlist wordt gemaakt via `POST /me/playlists`.
-8. Tracks worden in groepen van maximaal 100 toegevoegd via `POST /playlists/{playlist_id}/items`.
+1. Maak of open een GitHub-repository.
+2. Upload `index.html` in de hoofdmap van de repository.
+3. Open **Settings > Pages**.
+4. Kies **Deploy from a branch**.
+5. Selecteer branch **main** en map **/(root)**.
+6. Open daarna de gepubliceerde Pages-URL.
+7. Doe bij een update eventueel een harde refresh met `Ctrl+Shift+R`.
 
-## Belangrijke beperking vanaf 2026
+## 3. Gebruiken
 
-Spotify heeft `GET /artists/{id}/top-tracks` voor Development Mode verwijderd. Deze app gebruikt daarom de nog beschikbare Search-endpoint en sorteert de passende zoekresultaten op `popularity`. De gekozen tracks zijn dus een praktische benadering van de populairste tracks, niet gegarandeerd exact de zichtbare Spotify-ranglijst op de artiestenpagina.
+1. Klik op **Login met Spotify**.
+2. Geef toestemming.
+3. Plak één artiest per regel.
+4. Kies de naam en zichtbaarheid van de playlist.
+5. Klik op **Maak playlist**.
 
-## Client ID
+## Technische opmerkingen
 
-De opgegeven client ID staat bovenaan `app.js`. Plaats nooit een client secret in GitHub of browsercode.
+- De app gebruikt Authorization Code met PKCE. Er staat geen client secret in de browsercode.
+- Spotify heeft in 2026 voor Development Mode het artist-top-tracksendpoint verwijderd. Daarom zoekt deze app rechtstreeks naar tracks per artiest en kiest ze uit de zoekresultaten de track met de hoogste `popularity`.
+- Search gebruikt `limit=10`, conform de Development Mode-beperking.
+- Bij HTTP 429 respecteert de app `Retry-After` en probeert ze automatisch opnieuw.
+- De standaardpauze is 1250 ms. Voor zeer lange lijsten kun je die verhogen.
+- Stoppen vóór het einde maakt geen playlist aan, zodat je geen gedeeltelijke playlist krijgt.
 
-## Versie 3: bescherming tegen fout 429
+## Veiligheid
 
-Deze versie voegt toe:
-
-- automatische verwerking van Spotify `429 Too Many Requests`;
-- respect voor de `Retry-After`-header;
-- maximaal zes automatische pogingen;
-- oplopende wachttijd wanneer Spotify geen `Retry-After` meestuurt;
-- een globale pauze, zodat ook volgende aanvragen niet te vroeg vertrekken;
-- 1,2 seconde spreiding tussen artiesten;
-- caching van artiest- en trackzoekresultaten tijdens dezelfde run.
-
-Vervang minstens `app.js`. Omdat de interface ongewijzigd is tegenover v2, mogen `index.html` en `style.css` blijven staan, maar dit pakket bevat voor de zekerheid de volledige set.
+Een Spotify Client ID mag zichtbaar zijn in een browserapp. Plaats nooit een Spotify Client Secret in `index.html`, GitHub of GitHub Pages.
