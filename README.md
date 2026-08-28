@@ -32,3 +32,17 @@ Spotify heeft `GET /artists/{id}/top-tracks` voor Development Mode verwijderd. D
 ## Client ID
 
 De opgegeven client ID staat bovenaan `app.js`. Plaats nooit een client secret in GitHub of browsercode.
+
+## Versie 3: bescherming tegen fout 429
+
+Deze versie voegt toe:
+
+- automatische verwerking van Spotify `429 Too Many Requests`;
+- respect voor de `Retry-After`-header;
+- maximaal zes automatische pogingen;
+- oplopende wachttijd wanneer Spotify geen `Retry-After` meestuurt;
+- een globale pauze, zodat ook volgende aanvragen niet te vroeg vertrekken;
+- 1,2 seconde spreiding tussen artiesten;
+- caching van artiest- en trackzoekresultaten tijdens dezelfde run.
+
+Vervang minstens `app.js`. Omdat de interface ongewijzigd is tegenover v2, mogen `index.html` en `style.css` blijven staan, maar dit pakket bevat voor de zekerheid de volledige set.

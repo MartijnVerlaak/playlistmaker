@@ -76,53 +76,93 @@ async function accessToken() {
   const expiry = Number(localStorage.getItem('spotify_expires_at') || 0);
   return token && Date.now() < expiry ? token : refreshToken();
 }
-async function spotify(path, options = {}, retry = true) {
+const sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+const requestCache = new Map();
+let globalRateLimitUntil = 0;
+
+async function spotify(path, options = {}, attempt = 0) {
+  const method = options.method || 'GET';
+  const maxAttempts = 6;
+
+  // Zorg dat alle volgende aanvragen een actieve Spotify-wachttijd respecteren.
+  const remainingGlobalWait = globalRateLimitUntil - Date.now();
+  if (remainingGlobalWait > 0) {
+    showMessage(`Spotify vraagt om te wachten. Nieuwe poging over ${Math.ceil(remainingGlobalWait / 1000)} seconden…`);
+    await sleep(remainingGlobalWait);
+  }
+
   const response = await fetch(`${API}${path}`, {
     ...options,
     headers: {Authorization: `Bearer ${await accessToken()}`, ...(options.body ? {'Content-Type': 'application/json'} : {}), ...(options.headers || {})}
   });
-  if (response.status === 401 && retry) {
+
+  if (response.status === 401 && attempt < 1) {
     await refreshToken();
-    return spotify(path, options, false);
+    return spotify(path, options, attempt + 1);
   }
+
+  if (response.status === 429) {
+    const headerValue = Number.parseInt(response.headers.get('Retry-After') || '', 10);
+    const fallbackSeconds = Math.min(60, 2 ** attempt * 2);
+    const waitSeconds = Number.isFinite(headerValue) && headerValue >= 0 ? headerValue : fallbackSeconds;
+    const waitMilliseconds = (waitSeconds + 1) * 1000;
+    globalRateLimitUntil = Math.max(globalRateLimitUntil, Date.now() + waitMilliseconds);
+
+    if (attempt >= maxAttempts - 1) {
+      throw new Error(`Spotify blijft aanvragen beperken (429). Probeer later opnieuw. Laatste wachttijd: ${waitSeconds} seconden.`);
+    }
+
+    showMessage(`Spotify-limiet bereikt (429). Automatische nieuwe poging over ${waitSeconds + 1} seconden…`);
+    await sleep(waitMilliseconds);
+    return spotify(path, options, attempt + 1);
+  }
+
   if (response.status === 204) return null;
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     const detail = data?.error?.message || data?.error_description || `Spotify-fout ${response.status}`;
-    const wait = response.headers.get('Retry-After');
-    throw new Error(wait ? `${detail}. Probeer opnieuw na ${wait} seconden.` : detail);
+    throw new Error(detail);
   }
   return data;
 }
+
 function normalise(text) {
   return text.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
 // Zoekt eerst de artiest en verkiest een exacte naamsovereenkomst.
 async function resolveArtist(artistName) {
+  const cacheKey = `artist:${normalise(artistName)}`;
+  if (requestCache.has(cacheKey)) return requestCache.get(cacheKey);
   const data = await spotify(`/search?q=${encodeURIComponent(artistName)}&type=artist&limit=10`);
   const artists = data.artists?.items || [];
-  if (!artists.length) return null;
   const target = normalise(artistName);
-  return artists.find(artist => normalise(artist.name) === target) || artists[0];
+  const artist = artists.find(item => normalise(item.name) === target) || artists[0] || null;
+  requestCache.set(cacheKey, artist);
+  return artist;
 }
 
 // Spotify verwijderde in 2026 de Artist Top Tracks-endpoint voor Development Mode.
 // Daarom zoekt deze functie tracks op de opgeloste artiestennaam en rangschikt ze op popularity.
 async function topTracks(artist, amount) {
-  const data = await spotify(`/search?q=${encodeURIComponent(`artist:${artist.name}`)}&type=track&limit=50`);
-  const targetId = artist.id;
-  const targetName = normalise(artist.name);
-  const exactTracks = (data.tracks?.items || []).filter(track =>
-    track.artists.some(item => item.id === targetId || normalise(item.name) === targetName)
-  );
-  const unique = [];
-  const seen = new Set();
-  for (const track of exactTracks.sort((a, b) => (b.popularity || 0) - (a.popularity || 0))) {
-    const key = normalise(track.name);
-    if (!seen.has(key)) { seen.add(key); unique.push(track); }
+  const cacheKey = `tracks:${artist.id}`;
+  let rankedTracks = requestCache.get(cacheKey);
+  if (!rankedTracks) {
+    const data = await spotify(`/search?q=${encodeURIComponent(`artist:${artist.name}`)}&type=track&limit=50`);
+    const targetId = artist.id;
+    const targetName = normalise(artist.name);
+    const exactTracks = (data.tracks?.items || []).filter(track =>
+      track.artists.some(item => item.id === targetId || normalise(item.name) === targetName)
+    );
+    rankedTracks = [];
+    const seen = new Set();
+    for (const track of exactTracks.sort((a, b) => (b.popularity || 0) - (a.popularity || 0))) {
+      const key = normalise(track.name);
+      if (!seen.has(key)) { seen.add(key); rankedTracks.push(track); }
+    }
+    requestCache.set(cacheKey, rankedTracks);
   }
-  return unique.slice(0, amount);
+  return rankedTracks.slice(0, amount);
 }
 
 async function createSpotifyPlaylist(name, isPublic) {
@@ -208,6 +248,8 @@ async function buildPlaylist() {
         warnings.push(`${names[i]}: ${error.message}`);
         renderArtistResult(names[i], null, []);
       }
+      // Spreid de zoekaanvragen over Spotify's rollende rate-limitvenster.
+      if (i < names.length - 1) await sleep(1200);
     }
     if (!selected.length) throw new Error(`Geen tracks gevonden. ${warnings.join(' | ')}`);
     showMessage('Playlist maken en tracks toevoegen…');
