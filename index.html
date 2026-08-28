@@ -1,90 +1,58 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="nl">
 <head>
-    <meta charset="UTF-8">
-    <title>Spotify Playlist Generator</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Maak automatisch een Spotify-playlist met een populaire track per artiest.">
+  <title>Spotify Playlist Maker</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <main class="container">
+    <header>
+      <div class="brand">Spotify Playlist Maker</div>
+      <h1>Van artiestenlijst naar playlist</h1>
+      <p class="intro">Log in met Spotify, plak één artiest per regel en laat de app per artiest de populairste passende track zoeken.</p>
+    </header>
 
-<h2>Spotify Playlist Generator</h2>
+    <section class="card" id="loginCard">
+      <h2>1. Verbinden</h2>
+      <p>De app gebruikt OAuth PKCE. Er is geen client secret nodig en je wachtwoord komt nooit in deze app terecht.</p>
+      <div class="actions">
+        <button id="loginButton" class="primary">Inloggen met Spotify</button>
+        <button id="logoutButton" class="secondary hidden">Uitloggen</button>
+      </div>
+      <p id="accountStatus" class="status">Niet ingelogd</p>
+      <p class="small">Redirect URI voor Spotify Developer Dashboard: <code id="redirectUri"></code></p>
+    </section>
 
-<textarea id="artists" rows="10" cols="40">
-Turnstile
-Big Thief
-Alex G
-Deafheaven
-</textarea>
+    <section class="card">
+      <h2>2. Playlist instellen</h2>
+      <label for="playlistName">Naam playlist</label>
+      <input id="playlistName" type="text" value="Toptracks van mijn artiesten" maxlength="100">
 
-<br><br>
+      <label for="artists">Artiesten, één per regel</label>
+      <textarea id="artists" rows="12" placeholder="Big Thief&#10;Turnstile&#10;Alex G"></textarea>
 
-<button onclick="createPlaylist()">Maak Playlist</button>
+      <div class="grid">
+        <label class="checkbox"><input id="isPublic" type="checkbox"> Publieke playlist</label>
+        <label class="checkbox"><input id="avoidDuplicates" type="checkbox" checked> Dubbele tracks overslaan</label>
+      </div>
 
-<script>
+      <button id="createButton" class="primary" disabled>Playlist maken</button>
+      <p class="small">Selectiemethode: de app zoekt tracks op artiestennaam, verkiest een exacte artiestmatch en kiest vervolgens de track met de hoogste Spotify-populariteit uit de zoekresultaten.</p>
+    </section>
 
-const clientId = 'c17f3f874de044bcb883a69b5341d133';
-const accessToken = 'BQD....';
-
-async function getTopTrack(artistName) {
-
-    const searchResponse = await fetch(
-        `https://api.spotify.com/v1/search?q=${encodeURIComponent(artistName)}&type=artist&limit=1`,
-        {
-            headers: {
-                Authorization: `Bearer ${accessToken}`
-            }
-        }
-    );
-
-    const searchData = await searchResponse.json();
-
-    if (!searchData.artists.items.length) return null;
-
-    const artistId = searchData.artists.items[0].id;
-
-    const tracksResponse = await fetch(
-        `https://api.spotify.com/v1/artists/${artistId}/top-tracks?market=BE`,
-        {
-            headers: {
-                Authorization: `Bearer ${accessToken}`
-            }
-        }
-    );
-
-    const trackData = await tracksResponse.json();
-
-    return trackData.tracks[0]?.uri;
-}
-
-async function createPlaylist() {
-
-    const artistNames = document
-        .getElementById('artists')
-        .value
-        .split('\n')
-        .map(x => x.trim())
-        .filter(x => x);
-
-    let trackUris = [];
-
-    for (const artist of artistNames) {
-
-        const track = await getTopTrack(artist);
-
-        if (track) {
-            trackUris.push(track);
-            console.log("Toegevoegd:", artist);
-        }
-    }
-
-    console.log(trackUris);
-
-    alert(
-        `${trackUris.length} tracks gevonden.\n\n` +
-        `Volgende stap: playlist aanmaken via Spotify API.`
-    );
-}
-
-</script>
-
+    <section class="card">
+      <div class="resultHeader">
+        <h2>3. Resultaat</h2>
+        <span id="progress"></span>
+      </div>
+      <div id="message" class="message" aria-live="polite"></div>
+      <ol id="results" class="results"></ol>
+      <a id="playlistLink" class="primary linkButton hidden" target="_blank" rel="noopener">Open playlist in Spotify</a>
+    </section>
+  </main>
+  <script type="module" src="app.js"></script>
 </body>
 </html>
